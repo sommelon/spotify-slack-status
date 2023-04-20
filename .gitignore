@@ -1,0 +1,15 @@
+.venv
+.env
+.vscode
+.idea
+__pycache__
+.pyc
+.mypy_cache
+.cache
+*.log
+*.lock
+
+
+
+
+!Pipfile.lock
