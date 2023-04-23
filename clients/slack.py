@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -20,18 +21,23 @@ class SlackApiClient:
         self._d_cookie = d_cookie
         self.base_url = f"https://{workspace_domain}.slack.com/api"
 
+    def clear_user_status(self):
+        return self.update_user_status(None, None, None)
+
     def update_user_status(
         self, text: str, emoji: str, expiration_time: datetime
     ) -> str:
         """Update and return the user status."""
         url = self.base_url + "/users.profile.set"
 
-        expiration_timestamp = int(expiration_time.timestamp())
         profile_data = {
-            "status_emoji": emoji,
-            "status_expiration": expiration_timestamp,
-            "status_text": text,
+            "status_emoji": emoji or "",
+            "status_text": text or "",
         }
+        if expiration_time:
+            expiration_timestamp = int(expiration_time.timestamp())
+            profile_data["status_expiration"] = expiration_timestamp
+
         data = {
             "token": self.token,
             "profile": json.dumps(profile_data),
@@ -62,9 +68,10 @@ class SlackApiClient:
         self._handle_errors(json_response)
 
         return ClientBootResponse(
-            status_text=json_response["profile"]["status_text"],
-            status_emoji=json_response["profile"]["status_emoji"],
-            status_expiration=json_response["profile"]["status_expiration"],
+            status_text=json_response["self"]["profile"]["status_text"] or None,
+            status_emoji=json_response["self"]["profile"]["status_emoji"] or None,
+            status_expiration=json_response["self"]["profile"]["status_expiration"]
+            or None,
         )
 
     @property
@@ -77,6 +84,7 @@ class SlackApiClient:
         return f"d={self._d_cookie}; d-s={int(datetime.now().timestamp())}"
 
     def _handle_errors(self, json_response: dict):
+        logging.debug(json_response)
         if "error" in json_response and json_response["error"] == "invalid_auth":
             raise SlackInvalidAuthError("Token or d-cookie invalid or expired.")
 

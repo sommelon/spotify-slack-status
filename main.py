@@ -7,7 +7,9 @@ from args import parse_args
 from clients.slack import SlackApiClient, SlackInvalidAuthError
 from clients.spotify import SpotifyApiClient
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(format="%(asctime)s %(message)s")
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 class StatusUpdater:
@@ -31,23 +33,44 @@ class StatusUpdater:
                 time.sleep(self._args.refresh_interval)
                 self._update_user_status()
         except SlackInvalidAuthError as e:
-            print(str(e), "To continue, re-enter the credentials.")
+            logger.info(str(e), "To continue, re-enter the credentials.")
             token, d_cookie = self._ask_for_slack_credentials()
             self._slack = SlackApiClient(token, d_cookie, self._args.workspace_domain)
         except Exception as e:
-            logging.exception(str(e))
+            logger.exception(str(e))
 
     def _update_user_status(self):
         track = self._spotify.current_playback()
+        if not track:
+            logger.info("No song is currently playing on Spotify.")
+
+        response = self._slack.get_user_status()
+
+        new_status = f"{track.name} by {track.artist}" if track else None
+        if response.status_text == new_status:
+            if new_status:
+                logger.debug("Status already set")
+            return
+
+        if response.status_emoji is None and track is None:
+            logger.debug("Nothing to update")
+            return
+        elif response.status_emoji and response.status_emoji != self._args.emoji:
+            logger.info(
+                "Slack status not updated, because it would override a possibly more important status."
+            )
+            return
+
         if track:
             status = self._slack.update_user_status(
-                f"{track.name} by {track.artist}",
+                new_status,
                 self._args.emoji,
                 track.get_track_endtime(),
             )
-            logging.info("Current status: " + status)
+            logger.info("Current status: " + status)
         else:
-            logging.info("No song is currently playing on Spotify.")
+            status = self._slack.clear_user_status()
+            logger.info("Cleared status.")
 
     @staticmethod
     def _ask_for_slack_credentials():
