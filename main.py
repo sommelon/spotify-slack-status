@@ -3,6 +3,7 @@ import logging
 import time
 from getpass import getpass
 
+from spotipy.cache_handler import CacheFileHandler, MemoryCacheHandler
 from spotipy.oauth2 import SpotifyOAuth
 
 from args import parse_args
@@ -36,12 +37,16 @@ def handle_auth(func):
 class StatusUpdater:
     def __init__(self, args):
         self._args = args
+        cache_handler = (
+            CacheFileHandler() if args.spotify_use_file_cache else MemoryCacheHandler()
+        )
         self._spotify = SpotifyApiClient(
             auth_manager=SpotifyOAuth(
                 client_id=args.spotify_client_id,
                 client_secret=args.spotify_client_secret,
                 redirect_uri="http://localhost:8000",
                 scope="user-read-playback-state",
+                cache_handler=cache_handler,
             )
         )
         self._slack = SlackApiClient(

@@ -19,6 +19,7 @@ def parse_args():
     parser.add_argument("--workspace-subdomain", default=SLACK_WORKSPACE_SUBDOMAIN)
     parser.add_argument("--spotify-client-id", default=SPOTIFY_CLIENT_ID)
     parser.add_argument("--spotify-client-secret", default=SPOTIFY_CLIENT_SECRET)
+    parser.add_argument("--spotify-use-file-cache", action="store_true")
 
     args = parser.parse_args()
     return args
