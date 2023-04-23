@@ -78,7 +78,7 @@ class SlackApiClient:
 
     def _handle_errors(self, json_response: dict):
         if "error" in json_response and json_response["error"] == "invalid_auth":
-            raise SlackInvalidAuthError()
+            raise SlackInvalidAuthError("Token or d_cookie expired.")
 
 
 @dataclass
