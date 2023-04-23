@@ -4,14 +4,14 @@ import time
 
 from spotipy.oauth2 import SpotifyOAuth
 
-from client import SlackApiClient, SpotifyApiClient
+from clients.slack import SlackApiClient
+from clients.spotify import SpotifyApiClient
 
 logging.basicConfig(level=logging.INFO)
 
 
 TOKEN = os.getenv("TOKEN")
 D_COOKIE = os.getenv("COOKIE")
-USER_AGENT = os.getenv("USER_AGENT")
 REFRESH_INTERVAL = os.getenv("REFRESH_INTERVAL")
 EMOJI = os.getenv("EMOJI")
 WORKSPACE_DOMAIN = os.getenv("WORKSPACE_DOMAIN")
@@ -27,25 +27,25 @@ spotify = SpotifyApiClient(
         scope="user-read-playback-state",
     )
 )
-slack = SlackApiClient(TOKEN, D_COOKIE, WORKSPACE_DOMAIN, USER_AGENT)
+slack = SlackApiClient(TOKEN, D_COOKIE, WORKSPACE_DOMAIN)
 
 
-def update_status():
+def update_user_status():
     track = spotify.current_playback()
     if track:
-        response = slack.update_status(
+        status = slack.update_user_status(
             f"{track.name} by {track.artist}", EMOJI, track.get_track_endtime()
         )
-        logging.info("Current status: " + response["profile"]["status_text"])
+        logging.info("Current status: " + status)
     else:
         logging.info("No song is currently playing on Spotify.")
 
 
 try:
-    update_status()
+    update_user_status()
 
     while True:
         time.sleep(REFRESH_INTERVAL)
-        update_status()
+        update_user_status()
 except Exception as e:
     logging.exception(str(e))
