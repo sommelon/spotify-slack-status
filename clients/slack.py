@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import json
-import logging
 from dataclasses import dataclass
 from datetime import datetime
+from logging import Logger
 
 import requests
 
@@ -16,10 +16,13 @@ class SlackApiClient:
         "accept-encoding": "gzip, deflate, br",
     }
 
-    def __init__(self, token, d_cookie, workspace_domain):
-        self.token = token
+    def __init__(
+        self, token: str, d_cookie: str, workspace_domain: str, logger: Logger
+    ):
+        self._token = token
         self._d_cookie = d_cookie
-        self.base_url = f"https://{workspace_domain}.slack.com/api"
+        self._base_url = f"https://{workspace_domain}.slack.com/api"
+        self._logger = logger
 
     def clear_user_status(self):
         return self.update_user_status(None, None, None)
@@ -28,7 +31,7 @@ class SlackApiClient:
         self, text: str, emoji: str, expiration_time: datetime
     ) -> str:
         """Update and return the user status."""
-        url = self.base_url + "/users.profile.set"
+        url = self._base_url + "/users.profile.set"
 
         profile_data = {
             "status_emoji": emoji or "",
@@ -39,7 +42,7 @@ class SlackApiClient:
             profile_data["status_expiration"] = expiration_timestamp
 
         data = {
-            "token": self.token,
+            "token": self._token,
             "profile": json.dumps(profile_data),
             "_x_reason": "CustomStatusModal:handle_save",
             "_x_mode": "online",
@@ -55,10 +58,10 @@ class SlackApiClient:
 
     def get_user_status(self) -> ClientBootResponse:
         """Return the current user status"""
-        url = self.base_url + "/client.boot"
+        url = self._base_url + "/client.boot"
 
         data = {
-            "token": self.token,
+            "token": self._token,
             "version": "5",
         }
 
@@ -84,8 +87,11 @@ class SlackApiClient:
         return f"d={self._d_cookie}; d-s={int(datetime.now().timestamp())}"
 
     def _handle_errors(self, json_response: dict):
-        logging.debug(json_response)
-        if "error" in json_response and json_response["error"] == "invalid_auth":
+        self._logger.debug(json_response)
+        if "error" in json_response and json_response["error"] in [
+            "invalid_auth",
+            "not_authed",
+        ]:
             raise SlackInvalidAuthError("Token or d-cookie invalid or expired.")
 
 
@@ -96,8 +102,8 @@ class ClientBootResponse:
     status_expiration: datetime = None
 
     def __post_init__(self):
-        if self.status_expiration is None:
-            self.status_expiration = datetime.fromtimestamp(self.timestamp)
+        if isinstance(self.status_expiration, int):
+            self.status_expiration = datetime.fromtimestamp(self.status_expiration)
 
 
 class SlackInvalidAuthError(Exception):

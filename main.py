@@ -1,5 +1,7 @@
+import functools
 import logging
 import time
+from getpass import getpass
 
 from spotipy.oauth2 import SpotifyOAuth
 
@@ -9,7 +11,26 @@ from clients.spotify import SpotifyApiClient
 
 logging.basicConfig(format="%(asctime)s %(message)s")
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
+
+
+def handle_auth(func):
+    @functools.wraps(func)
+    def wrapper(*args):
+        try:
+            self = args[0]
+            result = func(*args)
+        except SlackInvalidAuthError:
+            # logger.exception(str(e))
+            print("To continue, re-enter the credentials.")
+            token, d_cookie = self._ask_for_slack_credentials()
+            self._slack = SlackApiClient(
+                token, d_cookie, self._args.workspace_domain, logger
+            )
+            result = func(*args)
+        return result
+
+    return wrapper
 
 
 class StatusUpdater:
@@ -23,7 +44,9 @@ class StatusUpdater:
                 scope="user-read-playback-state",
             )
         )
-        self._slack = SlackApiClient(args.token, args.d_cookie, args.workspace_domain)
+        self._slack = SlackApiClient(
+            args.token, args.d_cookie, args.workspace_domain, logger
+        )
 
     def run(self):
         try:
@@ -32,13 +55,10 @@ class StatusUpdater:
             while True:
                 time.sleep(self._args.refresh_interval)
                 self._update_user_status()
-        except SlackInvalidAuthError as e:
-            logger.info(str(e), "To continue, re-enter the credentials.")
-            token, d_cookie = self._ask_for_slack_credentials()
-            self._slack = SlackApiClient(token, d_cookie, self._args.workspace_domain)
         except Exception as e:
             logger.exception(str(e))
 
+    @handle_auth
     def _update_user_status(self):
         track = self._spotify.current_playback()
         if not track:
@@ -74,8 +94,9 @@ class StatusUpdater:
 
     @staticmethod
     def _ask_for_slack_credentials():
-        token = input("Slack token: ")
-        d_cookie = input("Slack d-cookie: ")
+        print("TEXT IS INVISIBLE, PRESS ENTER ONCE YOU PASTE IT")
+        token = getpass("Slack token: ")
+        d_cookie = getpass("Slack d-cookie: ")
         return token, d_cookie
 
 
