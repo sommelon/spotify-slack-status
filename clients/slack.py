@@ -17,11 +17,11 @@ class SlackApiClient:
     }
 
     def __init__(
-        self, token: str, d_cookie: str, workspace_domain: str, logger: Logger
+        self, token: str, d_cookie: str, workspace_subdomain: str, logger: Logger
     ):
         self._token = token
         self._d_cookie = d_cookie
-        self._base_url = f"https://{workspace_domain}.slack.com/api"
+        self._base_url = f"https://{workspace_subdomain}.slack.com/api"
         self._logger = logger
 
     def clear_user_status(self):

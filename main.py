@@ -25,7 +25,7 @@ def handle_auth(func):
             print("To continue, re-enter the credentials.")
             token, d_cookie = self._ask_for_slack_credentials()
             self._slack = SlackApiClient(
-                token, d_cookie, self._args.workspace_domain, logger
+                token, d_cookie, self._args.workspace_subdomain, logger
             )
             result = func(*args)
         return result
@@ -45,7 +45,7 @@ class StatusUpdater:
             )
         )
         self._slack = SlackApiClient(
-            args.token, args.d_cookie, args.workspace_domain, logger
+            args.token, args.d_cookie, args.workspace_subdomain, logger
         )
 
     def run(self):
