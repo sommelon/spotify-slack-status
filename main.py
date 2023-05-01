@@ -3,6 +3,7 @@ import logging
 import time
 from getpass import getpass
 
+from requests import ConnectionError, ConnectTimeout, ReadTimeout
 from spotipy.cache_handler import CacheFileHandler, MemoryCacheHandler
 from spotipy.oauth2 import SpotifyOAuth
 
@@ -28,6 +29,15 @@ def handle_auth(func):
             self._slack = SlackApiClient(
                 token, d_cookie, self._args.workspace_subdomain, logger
             )
+            result = handle_auth(func)(*args)
+        except (ConnectTimeout, ConnectionError, ReadTimeout) as e:
+            logger.exception(str(e))
+            logger.info("Retrying...")
+            time.sleep(self._args.refresh_interval)
+            result = handle_auth(func)(*args)
+        except Exception as e:
+            logger.exception(str(e))
+            time.sleep(self._args.refresh_interval)
             result = func(*args)
         return result
 
