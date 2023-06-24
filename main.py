@@ -1,4 +1,3 @@
-import functools
 import logging
 import time
 from getpass import getpass
@@ -12,36 +11,9 @@ from clients.slack import SlackApiClient, SlackInvalidAuthError
 from clients.spotify import SpotifyApiClient
 
 logging.basicConfig(format="%(asctime)s %(message)s")
+logging.getLogger("urllib3").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-
-
-def handle_auth(func):
-    @functools.wraps(func)
-    def wrapper(*args):
-        try:
-            self = args[0]
-            result = func(*args)
-        except SlackInvalidAuthError:
-            # logger.exception(str(e))
-            print("To continue, re-enter the credentials.")
-            token, d_cookie = self._ask_for_slack_credentials()
-            self._slack = SlackApiClient(
-                token, d_cookie, self._args.workspace_subdomain, logger
-            )
-            result = handle_auth(func)(*args)
-        except (ConnectTimeout, ConnectionError, ReadTimeout) as e:
-            logger.exception(str(e))
-            logger.info("Retrying...")
-            time.sleep(self._args.refresh_interval)
-            result = handle_auth(func)(*args)
-        except Exception as e:
-            logger.exception(str(e))
-            time.sleep(self._args.refresh_interval)
-            result = func(*args)
-        return result
-
-    return wrapper
 
 
 class StatusUpdater:
@@ -64,16 +36,23 @@ class StatusUpdater:
         )
 
     def run(self):
-        try:
-            self._update_user_status()
-
-            while True:
-                time.sleep(self._args.refresh_interval)
+        while True:
+            try:
                 self._update_user_status()
-        except Exception as e:
-            logger.exception(str(e))
+                time.sleep(self._args.refresh_interval)
+            except SlackInvalidAuthError as e:
+                logger.warning(str(e))
+                print("To continue, re-enter the credentials.")
+                token, d_cookie = self._ask_for_slack_credentials()
+                self._slack = SlackApiClient(
+                    token, d_cookie, self._args.workspace_subdomain, logger
+                )
+            except (ConnectTimeout, ConnectionError, ReadTimeout):
+                logger.info("Retrying...")
+                time.sleep(self._args.refresh_interval)
+            except Exception as e:
+                raise SystemExit("Unexpected exception occurred.") from e
 
-    @handle_auth
     def _update_user_status(self):
         track = self._spotify.current_playback()
         if not track:
